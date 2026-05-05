@@ -3,7 +3,7 @@ from app.config import Config
 import os
 
 supabase_url = Config.SUPABASE_URL or os.environ.get('SUPABASE_URL')
-supabase_key = Config.SUPABASE_KEY or os.environ.get('SUPABASE_KEY')
+supabase_key = Config.SUPABASE_KEY or os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
 supabase_service_key = Config.SUPABASE_SERVICE_ROLE_KEY or os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
 
 if not supabase_url or not supabase_key:

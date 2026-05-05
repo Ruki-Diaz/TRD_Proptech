@@ -4,9 +4,15 @@ import os
 
 supabase_url = Config.SUPABASE_URL or os.environ.get('SUPABASE_URL')
 if supabase_url:
-    supabase_url = supabase_url.rstrip('/')
+    supabase_url = supabase_url.strip().rstrip('/')
+    if supabase_url.endswith('/rest/v1'):
+        supabase_url = supabase_url[:-8]
 supabase_key = Config.SUPABASE_KEY or os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_ANON_KEY')
+if supabase_key:
+    supabase_key = supabase_key.strip()
 supabase_service_key = Config.SUPABASE_SERVICE_ROLE_KEY or os.environ.get('SUPABASE_SERVICE_ROLE_KEY')
+if supabase_service_key:
+    supabase_service_key = supabase_service_key.strip()
 
 if not supabase_url or not supabase_key:
     # Just a placeholder mock for if env vars are missing so process doesn't crash on import

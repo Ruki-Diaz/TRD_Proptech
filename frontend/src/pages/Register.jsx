@@ -38,7 +38,19 @@ const Register = () => {
     setLoading(true);
     
     try {
-      const authData = await register(formData.email, formData.password);
+      const signupMetadata = {
+        full_name: formData.fullName,
+        role: role,
+        phone_number: formData.phone,
+      };
+
+      if (role === 'agent') {
+        signupMetadata.company_name = formData.companyName || 'Independent Agent';
+        signupMetadata.license_number = formData.licenseNumber || '';
+        signupMetadata.bio = formData.bio || '';
+      }
+
+      const authData = await register(formData.email, formData.password, signupMetadata);
       
       if (!authData?.session) {
         setSuccess('Please verify your email, then sign in to complete setup.');

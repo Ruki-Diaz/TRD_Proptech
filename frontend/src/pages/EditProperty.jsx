@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { fetchEditableProperty, updateProperty } from '../services/api';
 import PageShell from '../components/PageShell';
+import { FALLBACK_IMAGE } from '../utils/helpers';
 
 const EditProperty = () => {
   const { propertyId } = useParams();
@@ -313,7 +314,7 @@ const EditProperty = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {currentImages.map((image, index) => (
                       <div key={`${image}-${index}`} className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800">
-                        <img src={image} alt={`Property ${index + 1}`} className="h-28 w-full object-cover" />
+                        <img src={image} alt={`Property ${index + 1}`} className="h-28 w-full object-cover" onError={(e) => { e.target.onerror = null; e.target.src = FALLBACK_IMAGE; }} />
                       </div>
                     ))}
                   </div>

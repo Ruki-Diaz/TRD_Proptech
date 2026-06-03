@@ -79,8 +79,27 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      console.error("Supabase signOut error:", err);
+      throw err;
+    } finally {
+      // Clear user states to trigger immediate UI update
+      setUser(null);
+      setUserProfile(null);
+      
+      // Wipe localStorage tokens and cache to prevent stale sessions
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('sb-'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
   };
 
   return (

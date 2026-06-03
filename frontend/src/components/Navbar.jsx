@@ -29,6 +29,8 @@ const Navbar = () => {
       navigate('/');
     } catch(err) {
       console.error(err);
+      alert("Failed to log out from the server. Local session has been cleared.");
+      navigate('/');
     }
   };
 

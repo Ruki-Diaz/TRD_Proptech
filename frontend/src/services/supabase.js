@@ -52,5 +52,9 @@ if (sanitizedUrl.endsWith('/rest/v1')) {
   sanitizedUrl = sanitizedUrl.substring(0, sanitizedUrl.length - 8);
 }
 
-export const supabase = createClient(sanitizedUrl, rawKey);
+// Fallback to placeholder values to prevent createClient from throwing an error during initialization if variables are missing
+const finalUrl = sanitizedUrl || "https://placeholder-project.supabase.co";
+const finalKey = rawKey || "placeholder-anon-key";
+
+export const supabase = createClient(finalUrl, finalKey);
 

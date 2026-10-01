@@ -29,35 +29,41 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    let active = true;
+
+    // Never leave the app blank: if Supabase is slow or unreachable, render anyway
+    const safetyTimer = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 5000);
+
+    // Listen for Auth events dynamically (INITIAL_SESSION fires on load with the stored session).
+    // This callback must stay synchronous: awaiting another supabase call in here
+    // deadlocks the auth client's lock and the app never finishes loading.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      
-      if (currentUser) {
-        await fetchUserProfile(currentUser.id);
-      } else {
-        setUserProfile(null);
-      }
-      setLoading(false);
-    };
 
-    initializeAuth();
-
-    // Listen for Auth events dynamically
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        await fetchUserProfile(currentUser.id);
-      } else {
+      if (!currentUser) {
         setUserProfile(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      // A token refresh doesn't change the profile
+      if (event === 'TOKEN_REFRESHED') return;
+
+      // Defer the profile query until the auth callback has returned
+      setTimeout(async () => {
+        await fetchUserProfile(currentUser.id);
+        if (active) setLoading(false);
+      }, 0);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email, password) => {

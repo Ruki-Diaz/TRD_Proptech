@@ -3,6 +3,9 @@ from typing import Optional, List
 from enum import Enum
 from uuid import UUID
 
+ADMIN_ONLY_PROPERTY_FIELDS = frozenset({'is_verified', 'featured', 'user_id'})
+
+
 class PurposeEnum(str, Enum):
     sale = 'sale'
     rent = 'rent'

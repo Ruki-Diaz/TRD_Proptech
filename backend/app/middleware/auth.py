@@ -1,6 +1,9 @@
 from functools import wraps
+import logging
 from flask import request, jsonify, g
 from app.database import supabase, supabase_admin
+
+logger = logging.getLogger(__name__)
 
 def get_authenticated_user():
     auth_header = request.headers.get('Authorization')
@@ -26,8 +29,9 @@ def get_authenticated_user():
             
         profile = profile_res.data[0]
             
-    except Exception as e:
-        return None, (jsonify({'success': False, 'error': {'message': 'Invalid or expired token', 'details': str(e)}}), 401)
+    except Exception:
+        logger.exception("Authentication failed while validating a bearer token")
+        return None, (jsonify({'success': False, 'error': {'message': 'Invalid or expired token'}}), 401)
 
     # 3. Attach to Flask global
     return {

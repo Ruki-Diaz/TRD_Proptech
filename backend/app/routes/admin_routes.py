@@ -1,9 +1,11 @@
+import logging
 from flask import Blueprint, request, jsonify
 from app.services import property_service
 from app.middleware.auth import admin_required
 from app.database import supabase, supabase_admin
 
 admin_bp = Blueprint('admin_routes', __name__)
+logger = logging.getLogger(__name__)
 
 @admin_bp.route('/users', methods=['GET'])
 @admin_required
@@ -15,8 +17,9 @@ def get_users():
         
         response = supabase_admin.table('profiles').select('id, email, role, full_name, created_at, agent_profiles(profile_id, company_name, is_verified)').range(offset, offset + limit - 1).execute()
         return jsonify({'success': True, 'data': response.data})
-    except Exception as e:
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+    except Exception:
+        logger.exception("Failed to retrieve users")
+        return jsonify({'success': False, 'error': {'message': 'Failed to retrieve users'}}), 500
 
 @admin_bp.route('/users/<user_id>/role', methods=['PUT'])
 @admin_required
@@ -41,12 +44,13 @@ def update_user_role(user_id):
                     'profile_id': user_id,
                     'company_name': 'Independent Agent'
                 }, on_conflict='profile_id').execute()
-            except Exception as e:
-                print("Agent profile creation warning:", e)
+            except Exception:
+                logger.exception("Failed to create agent profile for user=%s", user_id)
                 
         return jsonify({'success': True, 'data': profile})
-    except Exception as e:
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+    except Exception:
+        logger.exception("Failed to update role for user=%s", user_id)
+        return jsonify({'success': False, 'error': {'message': 'Failed to update user role'}}), 500
 
 @admin_bp.route('/agents/<profile_id>/verification', methods=['PATCH'])
 @admin_required
@@ -63,5 +67,6 @@ def verify_agent(profile_id):
             return jsonify({'success': False, 'error': {'message': 'Agent profile not found'}}), 404
             
         return jsonify({'success': True, 'data': res.data[0]})
-    except Exception as e:
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+    except Exception:
+        logger.exception("Failed to update agent verification for profile=%s", profile_id)
+        return jsonify({'success': False, 'error': {'message': 'Failed to update agent verification'}}), 500

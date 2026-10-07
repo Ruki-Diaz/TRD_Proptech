@@ -1,3 +1,4 @@
+import math
 import re
 import uuid
 from app.database import supabase, supabase_admin
@@ -8,6 +9,23 @@ def generate_slug(title: str) -> str:
     base = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
     return f"{base}-{str(uuid.uuid4())[:6]}"
 
+
+def _parse_nonnegative_integer(value, field):
+    if not re.fullmatch(r'\d+', str(value)):
+        raise ValueError(f'{field} must be a non-negative integer')
+    return int(value)
+
+
+def _parse_nonnegative_number(value, field):
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'{field} must be a non-negative number') from None
+    if not math.isfinite(parsed) or parsed < 0:
+        raise ValueError(f'{field} must be a non-negative number')
+    return parsed
+
+
 def get_authenticated_client(token: str):
     return create_client(
         supabase_url,
@@ -16,6 +34,25 @@ def get_authenticated_client(token: str):
     )
 
 def get_properties(filters=None, sort='newest', page=1, limit=12):
+    filters = filters or {}
+    bedrooms = (
+        _parse_nonnegative_integer(filters['bedrooms'], 'bedrooms')
+        if filters.get('bedrooms') not in (None, '')
+        else None
+    )
+    min_price = (
+        _parse_nonnegative_number(filters['min_price'], 'min_price')
+        if filters.get('min_price') not in (None, '')
+        else None
+    )
+    max_price = (
+        _parse_nonnegative_number(filters['max_price'], 'max_price')
+        if filters.get('max_price') not in (None, '')
+        else None
+    )
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise ValueError('min_price must be less than or equal to max_price')
+
     query = supabase.table('properties').select('*', count='exact').eq('is_published', True)
     
     if filters:
@@ -25,12 +62,12 @@ def get_properties(filters=None, sort='newest', page=1, limit=12):
             query = query.eq('purpose', filters['purpose'])
         if filters.get('property_type'):
             query = query.eq('property_type', filters['property_type'])
-        if filters.get('bedrooms'):
-            query = query.gte('bedrooms', int(filters['bedrooms']))
-        if filters.get('min_price'):
-            query = query.gte('price', float(filters['min_price']))
-        if filters.get('max_price'):
-            query = query.lte('price', float(filters['max_price']))
+        if bedrooms is not None:
+            query = query.gte('bedrooms', bedrooms)
+        if min_price is not None:
+            query = query.gte('price', min_price)
+        if max_price is not None:
+            query = query.lte('price', max_price)
         if filters.get('user_id'):
             query = query.eq('user_id', filters['user_id'])
             

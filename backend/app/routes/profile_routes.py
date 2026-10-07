@@ -20,9 +20,9 @@ def get_my_profile():
             response = supabase_admin.table('profiles').select('*').eq('id', user_id).single().execute()
             
         return jsonify({'success': True, 'data': response.data})
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to fetch profile for user=%s", g.current_user['id'])
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+        return jsonify({'success': False, 'error': {'message': 'Failed to retrieve profile'}}), 500
 
 @profile_bp.route('/update', methods=['PUT'])
 @login_required
@@ -42,9 +42,9 @@ def update_profile():
             return jsonify({'success': False, 'error': {'message': 'Profile not found'}}), 404
             
         return jsonify({'success': True, 'data': response.data[0]})
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to update profile for user=%s", g.current_user['id'])
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+        return jsonify({'success': False, 'error': {'message': 'Failed to update profile'}}), 500
 
 @profile_bp.route('/agent-update', methods=['PUT'])
 @role_required('agent')
@@ -66,9 +66,9 @@ def update_agent_profile():
             response = supabase_admin.table('agent_profiles').insert(update_data).execute()
             
         return jsonify({'success': True, 'data': response.data[0]})
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to update agent profile for user=%s", g.current_user['id'])
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+        return jsonify({'success': False, 'error': {'message': 'Failed to update agent profile'}}), 500
 
 @profile_bp.route('/agents/<agent_id>', methods=['GET'])
 def get_public_agent_profile(agent_id):
@@ -94,6 +94,6 @@ def get_public_agent_profile(agent_id):
         agent_data.pop('updated_at', None)
         
         return jsonify({'success': True, 'data': agent_data})
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to fetch public agent profile for %s", agent_id)
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+        return jsonify({'success': False, 'error': {'message': 'Failed to retrieve agent profile'}}), 500

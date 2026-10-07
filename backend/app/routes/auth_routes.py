@@ -54,6 +54,6 @@ def setup_profile():
         
         return jsonify({'success': True, 'data': profile})
 
-    except Exception as e:
+    except Exception:
         logger.exception("Setup profile failed for user=%s", g.current_user.get('id'))
-        return jsonify({'success': False, 'error': {'message': str(e)}}), 500
+        return jsonify({'success': False, 'error': {'message': 'Failed to set up profile'}}), 500

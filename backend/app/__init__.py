@@ -6,6 +6,7 @@ from app.config import Config
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.config.setdefault('RATELIMIT_STORAGE_URI', 'memory://')
     
     frontend_url = os.environ.get('FRONTEND_URL')
     
@@ -14,7 +15,14 @@ def create_app():
         allowed_origins.append(frontend_url.strip().rstrip('/'))
         
     CORS(app, resources={r"/api/*": {"origins": allowed_origins}}, supports_credentials=True)
-    
+
+    from app.limiter import limiter
+    limiter.init_app(app)
+
+    @app.errorhandler(429)
+    def rate_limit_exceeded(error):
+        return {'success': False, 'error': {'message': 'Rate limit exceeded'}}, 429
+
     @app.route('/health')
     def health_check():
         return {'status': 'healthy', 'message': 'API is running', 'success': True}

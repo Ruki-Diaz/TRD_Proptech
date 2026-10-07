@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Heart, Search } from 'lucide-react';
-import { useSavedProperties } from '../context/SavedPropertiesContext';
+import { useSavedProperties } from '../context/useSavedProperties';
 import PropertyCard from '../components/PropertyCard';
 import PageShell from '../components/PageShell';
 
 const SavedProperties = () => {
-  const { savedProperties, toggleSaveProperty } = useSavedProperties();
+  const { savedProperties } = useSavedProperties();
 
   return (
     <PageShell className="bg-slate-950 relative overflow-hidden text-slate-200 pt-[120px] pb-10">

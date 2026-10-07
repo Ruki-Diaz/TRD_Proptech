@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MapPin, Building, ShieldCheck, TrendingUp, Users, ArrowRight, Star, ArrowUpRight, CheckCircle2, PhoneCall, Key, HeartHandshake } from 'lucide-react';
+import { Search, MapPin, ArrowRight, ArrowUpRight, CheckCircle2, PhoneCall, Key, HeartHandshake, AlertCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { fetchProperties } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
+
+const Motion = motion;
 
 // --- Framer Motion Variants ---
 const staggerContainer = {
@@ -28,21 +30,63 @@ const scaleIn = {
 const Home = () => {
   const navigate = useNavigate();
   const [featured, setFeatured] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalCount, setTotalCount] = useState(null);
   const [search, setSearch] = useState({ district: '', type: '', purpose: '', max_price: '' });
   
   const { scrollYProgress } = useScroll();
   const yHeroText = useTransform(scrollYProgress, [0, 1], [0, 200]);
   const opacityHeroText = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
-  useEffect(() => {
-    fetchProperties().then(res => {
-      const featuredProps = res.data.filter(p => p.featured).slice(0, 6);
-      if(featuredProps.length > 0) {
+  const handleRetry = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchProperties();
+      const featuredProps = (res.data || []).filter(p => p.featured).slice(0, 6);
+      if (featuredProps.length > 0) {
         setFeatured(featuredProps);
       } else {
-        setFeatured(res.data.slice(0, 6));
+        setFeatured((res.data || []).slice(0, 6));
       }
-    }).catch(err => console.error(err));
+      setTotalCount(res.total ?? res.data?.length ?? 0);
+    } catch (err) {
+      console.error("Failed to load featured properties:", err);
+      setError("Couldn't load listings. Please check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      try {
+        const res = await fetchProperties();
+        if (!isMounted) return;
+        const featuredProps = (res.data || []).filter(p => p.featured).slice(0, 6);
+        if (featuredProps.length > 0) {
+          setFeatured(featuredProps);
+        } else {
+          setFeatured((res.data || []).slice(0, 6));
+        }
+        setTotalCount(res.total ?? res.data?.length ?? 0);
+      } catch (err) {
+        console.error("Failed to load featured properties:", err);
+        if (isMounted) {
+          setError("Couldn't load listings. Please check your connection and retry.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSearch = (e) => {
@@ -204,10 +248,10 @@ const Home = () => {
         <div className="container mx-auto px-6 max-w-6xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x-0 md:divide-x divide-white/5">
             {[
-              { label: 'Properties Listed', value: '2.5k+' },
-              { label: 'Verified Agents', value: '150+' },
+              { label: 'Properties Listed', value: totalCount !== null ? `${totalCount}` : '—' },
               { label: 'Districts Covered', value: '25' },
-              { label: 'Enquiries Sent', value: '10k+' }
+              { label: 'Verified Listings', value: '100%' },
+              { label: 'Direct Inquiries', value: '24/7' }
             ].map((stat, idx) => (
               <motion.div 
                 key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ delay: idx * 0.1, duration: 0.6 }}
@@ -238,20 +282,43 @@ const Home = () => {
             </motion.div>
           </motion.div>
           
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featured.length > 0 ? featured.map((prop) => (
-              <motion.div key={prop.id} variants={scaleIn} className="h-full">
-                <PropertyCard prop={prop} />
-              </motion.div>
-            )) : (
-              [1,2,3].map(i => (
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map(i => (
                 <div key={i} className="h-[450px] rounded-[2rem] bg-white/5 border border-white/5 animate-pulse overflow-hidden flex flex-col">
                   <div className="h-2/3 bg-white/10 w-full" />
-                  <div className="p-6 flex-1 flex flex-col justify-end gap-3"><div className="h-6 bg-white/10 rounded w-3/4" /><div className="h-4 bg-white/10 rounded w-1/2" /></div>
+                  <div className="p-6 flex-1 flex flex-col justify-end gap-3">
+                    <div className="h-6 bg-white/10 rounded w-3/4" />
+                    <div className="h-4 bg-white/10 rounded w-1/2" />
+                  </div>
                 </div>
-              ))
-            )}
-          </motion.div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="bg-slate-900/50 p-12 rounded-3xl border border-slate-800 text-center backdrop-blur-sm max-w-xl mx-auto">
+              <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-slate-200 mb-2">Couldn't load featured listings</h3>
+              <p className="text-slate-400 text-sm mb-6">{error}</p>
+              <button 
+                onClick={handleRetry}
+                className="inline-flex items-center justify-center bg-teal-500 hover:bg-teal-400 text-[#050505] font-bold px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]"
+              >
+                Retry
+              </button>
+            </div>
+          ) : featured.length > 0 ? (
+            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={staggerContainer} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featured.map((prop) => (
+                <motion.div key={prop.id} variants={scaleIn} className="h-full">
+                  <PropertyCard prop={prop} />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="bg-slate-900/50 p-12 rounded-3xl border border-slate-800 text-center backdrop-blur-sm max-w-xl mx-auto">
+              <p className="text-slate-400">No featured properties available at this time.</p>
+            </div>
+          )}
         </div>
       </section>
 

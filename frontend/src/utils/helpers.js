@@ -87,7 +87,7 @@ export const getPropertyImages = (property) => {
           if (!Array.isArray(parsedUrls)) {
             parsedUrls = [parsedUrls];
           }
-        } catch (e) {
+        } catch {
           // If not valid JSON, treat as comma-separated or single string
           if (trimmed.includes(',')) {
             parsedUrls = trimmed.split(',').map(s => s.trim());

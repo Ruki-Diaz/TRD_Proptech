@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { FALLBACK_IMAGE } from '../utils/helpers';
 
@@ -11,15 +11,15 @@ const ImageGallery = ({ images = [] }) => {
     ? images 
     : [FALLBACK_IMAGE];
 
-  const handleNext = (e) => {
-    e.stopPropagation();
+  const handleNext = useCallback((e) => {
+    if (e) e.stopPropagation();
     setActiveIdx((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1));
-  };
+  }, [safeImages.length]);
 
-  const handlePrev = (e) => {
-    e.stopPropagation();
+  const handlePrev = useCallback((e) => {
+    if (e) e.stopPropagation();
     setActiveIdx((prev) => (prev === 0 ? safeImages.length - 1 : prev - 1));
-  };
+  }, [safeImages.length]);
 
   // Keyboard Navigation for Lightbox
   useEffect(() => {
@@ -31,7 +31,7 @@ const ImageGallery = ({ images = [] }) => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxOpen, safeImages.length]);
+  }, [lightboxOpen, handleNext, handlePrev]);
 
   return (
     <>

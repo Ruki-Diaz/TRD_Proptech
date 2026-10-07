@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { fetchMyProfile } from '../services/api';
 
 const Login = () => {
@@ -27,7 +27,7 @@ const Login = () => {
         } else {
           navigate('/');
         }
-      } catch (profileErr) {
+      } catch {
         // Fallback
         navigate('/');
       }

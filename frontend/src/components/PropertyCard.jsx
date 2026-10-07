@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Bed, Bath, Expand, Heart, ShieldCheck, Star, User, Briefcase, Clock } from 'lucide-react';
-import { useSavedProperties } from '../context/SavedPropertiesContext';
+import { useSavedProperties } from '../context/useSavedProperties';
 import Badge from './Badge';
 import { timeAgo, getPropertyImage, FALLBACK_IMAGE } from '../utils/helpers';
 

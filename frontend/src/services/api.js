@@ -1,6 +1,43 @@
 import { supabase } from './supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5001';
+const DEFAULT_TIMEOUT_MS = 60000;
+
+const fetchWithTimeout = async (url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+
+  let signal = controller.signal;
+  if (options.signal) {
+    options.signal.addEventListener('abort', () => controller.abort());
+  }
+
+  try {
+    const response = await fetch(url, { ...options, signal });
+    return response;
+  } finally {
+    clearTimeout(id);
+  }
+};
+
+const customFetch = async (url, options = {}) => {
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+
+  if (!isGet) {
+    return fetchWithTimeout(url, options, DEFAULT_TIMEOUT_MS);
+  }
+
+  try {
+    const response = await fetchWithTimeout(url, options, DEFAULT_TIMEOUT_MS);
+    if (!response.ok && response.status >= 500) {
+      return await fetchWithTimeout(url, options, DEFAULT_TIMEOUT_MS);
+    }
+    return response;
+  } catch {
+    return await fetchWithTimeout(url, options, DEFAULT_TIMEOUT_MS);
+  }
+};
 
 const getErrorMessage = async (response, fallbackMessage) => {
   try {
@@ -31,7 +68,7 @@ export const fetchProperties = async (filters = {}) => {
   for (const [key, value] of new URLSearchParams(query)) {
       if (value) activeParams.append(key, value);
   }
-  const response = await fetch(`${API_BASE_URL}/api/properties/?${activeParams.toString()}`);
+  const response = await customFetch(`${API_BASE_URL}/api/properties/?${activeParams.toString()}`);
   if (!response.ok) throw new Error('Failed to fetch properties');
   const result = await response.json();
   return { 
@@ -43,7 +80,7 @@ export const fetchProperties = async (filters = {}) => {
 };
 
 export const submitEnquiry = async (enquiryData) => {
-  const response = await fetch(`${API_BASE_URL}/api/enquiries/`, {
+  const response = await customFetch(`${API_BASE_URL}/api/enquiries/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(enquiryData)
@@ -54,14 +91,14 @@ export const submitEnquiry = async (enquiryData) => {
 };
 
 export const fetchPropertyBySlug = async (slug) => {
-  const response = await fetch(`${API_BASE_URL}/api/properties/${slug}`);
+  const response = await customFetch(`${API_BASE_URL}/api/properties/${slug}`);
   if (!response.ok) throw new Error('Property not found');
   const result = await response.json();
   return result.data;
 };
 
 export const fetchSimilarProperties = async (slug) => {
-  const response = await fetch(`${API_BASE_URL}/api/properties/similar/${slug}`);
+  const response = await customFetch(`${API_BASE_URL}/api/properties/similar/${slug}`);
   if (!response.ok) throw new Error('Similar properties missing');
   const result = await response.json();
   return result.data || [];
@@ -70,7 +107,7 @@ export const fetchSimilarProperties = async (slug) => {
 export const createProperty = async (propertyData) => {
   const headers = await getAuthHeaders();
 
-  const response = await fetch(`${API_BASE_URL}/api/properties/create`, {
+  const response = await customFetch(`${API_BASE_URL}/api/properties/create`, {
     method: 'POST',
     headers,
     body: JSON.stringify(propertyData)
@@ -82,7 +119,7 @@ export const createProperty = async (propertyData) => {
 
 export const fetchMyProperties = async () => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/properties/mine`, { headers });
+  const response = await customFetch(`${API_BASE_URL}/api/properties/mine`, { headers });
   if (!response.ok) throw new Error(await getErrorMessage(response, 'Failed to fetch your properties'));
   const result = await response.json();
   return result.data || [];
@@ -90,7 +127,7 @@ export const fetchMyProperties = async () => {
 
 export const fetchEditableProperty = async (propertyId) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, { headers });
+  const response = await customFetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, { headers });
   if (!response.ok) throw new Error(await getErrorMessage(response, 'Failed to fetch listing details'));
   const result = await response.json();
   return result.data;
@@ -98,7 +135,7 @@ export const fetchEditableProperty = async (propertyId) => {
 
 export const updatePropertyStatus = async (propertyId, status) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/properties/${propertyId}/status`, {
+  const response = await customFetch(`${API_BASE_URL}/api/properties/${propertyId}/status`, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ status })
@@ -110,7 +147,7 @@ export const updatePropertyStatus = async (propertyId, status) => {
 
 export const updateProperty = async (propertyId, propertyData) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, {
+  const response = await customFetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify(propertyData)
@@ -122,7 +159,7 @@ export const updateProperty = async (propertyId, propertyData) => {
 
 export const deleteProperty = async (propertyId) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, {
+  const response = await customFetch(`${API_BASE_URL}/api/properties/manage/${propertyId}`, {
     method: 'DELETE',
     headers
   });
@@ -133,7 +170,7 @@ export const deleteProperty = async (propertyId) => {
 
 export const fetchMyProfile = async () => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/profile/me`, { headers });
+  const response = await customFetch(`${API_BASE_URL}/api/profile/me`, { headers });
   if (!response.ok) throw new Error(await getErrorMessage(response, 'Failed to fetch profile'));
   const result = await response.json();
   return result.data;
@@ -141,7 +178,7 @@ export const fetchMyProfile = async () => {
 
 export const updateProfile = async (profileData) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+  const response = await customFetch(`${API_BASE_URL}/api/profile/update`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(profileData)
@@ -153,7 +190,7 @@ export const updateProfile = async (profileData) => {
 
 export const updateAgentProfile = async (agentData) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/profile/agent-update`, {
+  const response = await customFetch(`${API_BASE_URL}/api/profile/agent-update`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(agentData)
@@ -168,7 +205,7 @@ export const setupProfile = async (data) => {
   const token = sessionData?.session?.access_token;
   if (!token) throw new Error('Authentication required');
 
-  const response = await fetch(`${API_BASE_URL}/api/auth/setup`, {
+  const response = await customFetch(`${API_BASE_URL}/api/auth/setup`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -186,7 +223,7 @@ export const setupProfile = async (data) => {
 
 export const fetchMyEnquiries = async () => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/enquiries/mine`, { headers });
+  const response = await customFetch(`${API_BASE_URL}/api/enquiries/mine`, { headers });
   if (!response.ok) throw new Error(await getErrorMessage(response, 'Failed to fetch enquiries'));
   const result = await response.json();
   return result.data;
@@ -194,7 +231,7 @@ export const fetchMyEnquiries = async () => {
 
 export const updateEnquiryStatus = async (enquiryId, status) => {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/enquiries/${enquiryId}/status`, {
+  const response = await customFetch(`${API_BASE_URL}/api/enquiries/${enquiryId}/status`, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ status })
@@ -205,7 +242,7 @@ export const updateEnquiryStatus = async (enquiryId, status) => {
 };
 
 export const fetchAgentProfile = async (agentId) => {
-  const response = await fetch(`${API_BASE_URL}/api/profile/agents/${agentId}`);
+  const response = await customFetch(`${API_BASE_URL}/api/profile/agents/${agentId}`);
   if (!response.ok) throw new Error(await getErrorMessage(response, 'Agent not found'));
   const result = await response.json();
   return result.data;

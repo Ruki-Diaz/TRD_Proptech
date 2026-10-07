@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { fetchMyProfile, updateProfile, updateAgentProfile } from '../services/api';
 import { Loader2, Save, User, Briefcase } from 'lucide-react';
 import PageShell from '../components/PageShell';

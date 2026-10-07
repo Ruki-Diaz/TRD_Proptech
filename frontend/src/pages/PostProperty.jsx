@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { supabase } from '../services/supabase';
+import { useAuth } from '../context/useAuth';
 import { createProperty } from '../services/api';
 import PageShell from '../components/PageShell';
+import { validateImages, uploadPropertyImages } from '../utils/imageUpload';
 
 const PostProperty = () => {
   const { user, loading: authLoading } = useAuth();
@@ -14,6 +14,7 @@ const PostProperty = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState('');
   
   const [files, setFiles] = useState([]);
   
@@ -42,58 +43,37 @@ const PostProperty = () => {
   };
 
   const handleFileChange = (e) => {
-    setFiles(Array.from(e.target.files));
-  };
-
-  const uploadImages = async (filesToUpload, currentUser) => {
-    console.log("Selected files:", filesToUpload);
-    const uploadedUrls = [];
-
-    for (const file of filesToUpload) {
-      if (!file || file.size === 0) {
-        continue;
-      }
-
-      const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
-      console.log("Upload path:", filePath);
-
-      const { data, error } = await supabase.storage
-        .from("property-images")
-        .upload(filePath, file);
-
-      console.log("Upload result - Data:", data, "Error:", error);
-
-      if (error) {
-        console.error("Upload error:", error);
-        alert(error.message);
-        throw new Error(error.message);
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("property-images")
-        .getPublicUrl(filePath);
-        
-      console.log("Generated URL:", publicUrlData.publicUrl);
-      uploadedUrls.push(publicUrlData.publicUrl);
+    const selectedFiles = Array.from(e.target.files || []);
+    const validationErr = validateImages(selectedFiles);
+    if (validationErr) {
+      setImageError(validationErr);
+      setFiles([]);
+      return;
     }
-
-    console.log("All Uploaded URLs:", uploadedUrls);
-    return uploadedUrls;
+    setImageError('');
+    setFiles(selectedFiles);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setImageError('');
     
     try {
       if (!user) throw new Error("Authentication required");
       
+      const imageValidationErr = validateImages(files);
+      if (imageValidationErr) {
+        setImageError(imageValidationErr);
+        throw new Error(imageValidationErr);
+      }
+
       let main_image_url = null;
       let image_urls = [];
       
       if (files.length > 0) {
-         const urls = await uploadImages(files, user);
+         const urls = await uploadPropertyImages(files, user);
          main_image_url = urls[0] || null;
          image_urls = urls.slice(1);
       }
@@ -115,7 +95,7 @@ const PostProperty = () => {
       window.scrollTo(0, 0);
       
     } catch (err) {
-      console.error(err);
+      console.error("Property creation error:", err);
       setError(err.message || "Failed to create listing.");
     } finally {
       setLoading(false);
@@ -243,13 +223,19 @@ const PostProperty = () => {
                   
                   <div className="mb-8">
                      <label className="block text-sm font-bold text-slate-300 mb-2">Property Images</label>
-                     <p className="text-xs text-slate-400 mb-3 font-semibold">First image will be used as the main Hero display.</p>
+                     <p className="text-xs text-slate-400 mb-3 font-semibold">Accepted formats: JPEG, PNG, WebP (max 5 MB per image, up to 10 images). First image will be used as the main Hero display.</p>
                      
                      <div className="w-full bg-slate-800/50 border-2 border-dashed border-teal-500/30 rounded-2xl p-8 hover:bg-slate-800 hover:border-teal-500/50 transition-all text-center relative cursor-pointer group">
                         <UploadCloud className="w-10 h-10 text-teal-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <span className="font-bold text-teal-400 text-sm">Click to upload photos</span>
-                        <input type="file" multiple accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                      </div>
+                     {imageError && (
+                        <div className="mt-3 bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl flex items-center text-rose-400 text-sm">
+                           <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
+                           <span>{imageError}</span>
+                        </div>
+                     )}
                      {files.length > 0 && (
                         <div className="mt-4 flex flex-wrap gap-2">
                            {files.map((f, i) => (

@@ -1,10 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-const SavedPropertiesContext = createContext();
-
-export const useSavedProperties = () => {
-  return useContext(SavedPropertiesContext);
-};
+import React, { useState, useEffect } from 'react';
+import { SavedPropertiesContext } from './savedPropertiesContextInstance';
 
 export const SavedPropertiesProvider = ({ children }) => {
   const [savedProperties, setSavedProperties] = useState(() => {

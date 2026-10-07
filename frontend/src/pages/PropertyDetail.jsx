@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, ArrowLeft, Phone, Bed, Bath, Expand, CheckCircle2, Copy, Heart, ShieldCheck, Star, User, Briefcase, Clock } from 'lucide-react';
+import { MapPin, ArrowLeft, Bed, Bath, Expand, CheckCircle2, Copy, ShieldCheck, Clock } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { fetchPropertyBySlug, fetchSimilarProperties, submitEnquiry } from '../services/api';
-import { useSavedProperties } from '../context/SavedPropertiesContext';
+import { useSavedProperties } from '../context/useSavedProperties';
 import PropertyCard from '../components/PropertyCard';
 import { timeAgo, getPropertyImages } from '../utils/helpers';
 import Badge from '../components/Badge';
@@ -14,7 +14,6 @@ const PropertyDetail = () => {
   const { slug } = useParams();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState('');
   const [copied, setCopied] = useState(false);
   const { isSaved, toggleSaveProperty } = useSavedProperties();
 
@@ -25,32 +24,41 @@ const PropertyDetail = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setLoading(true);
-    setErrorStatus(false);
-    console.log("Fetching property details for slug:", slug);
-    
-    fetchPropertyBySlug(slug)
-      .then(data => {
+    let isMounted = true;
+
+    async function loadPropertyData() {
+      try {
+        setLoading(true);
+        setErrorStatus(false);
+        const data = await fetchPropertyBySlug(slug);
+        if (!isMounted) return;
         setProperty(data);
-        
-        fetchSimilarProperties(slug)
-          .then(res => setSimilarProps(res))
-          .catch(e => console.error("Similar fetch err:", e));
-      })
-      .catch(err => {
+
+        try {
+          const res = await fetchSimilarProperties(slug);
+          if (isMounted) setSimilarProps(res || []);
+        } catch (e) {
+          console.error("Similar fetch err:", e);
+        }
+      } catch (err) {
         console.error("Failed fetching property:", err);
-        setErrorStatus(true);
-      })
-      .finally(() => setLoading(false));
+        if (isMounted) setErrorStatus(true);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadPropertyData();
+    return () => {
+      isMounted = false;
+    };
   }, [slug]);
 
   const handleEnquirySubmit = async (e) => {
     e.preventDefault();
     setEnquiryStatus('loading');
     
-    // VERIFICATION: Logging the exact payload being sent to the backend
     const payload = { ...enquiry, property_id: property.id };
-    console.log("Enquiry Payload:", payload);
     
     try {
       await submitEnquiry(payload);
@@ -188,7 +196,9 @@ const PropertyDetail = () => {
 
               <div>
                 <h3 className="text-2xl font-bold text-white mb-4 tracking-tight">Description</h3>
-                <div className="prose prose-invert max-w-none text-slate-400 leading-relaxed text-lg" dangerouslySetInnerHTML={{__html: property.description?.replace(/\\n/g, '<br/>') || 'No description provided.'}}></div>
+                <div className="prose prose-invert max-w-none text-slate-400 leading-relaxed text-lg whitespace-pre-line">
+                  {property.description || 'No description provided.'}
+                </div>
               </div>
 
               {property.features?.length > 0 && (

@@ -55,7 +55,9 @@ def submit_enquiry():
     }
 
     try:
-        response = supabase.table('enquiries').insert(payload).execute()
+        # Insert with the service-role client: anon has INSERT but no SELECT on
+        # enquiries, so returning the created row through the anon client fails.
+        response = supabase_admin.table('enquiries').insert(payload).execute()
         enquiry = response.data[0] if getattr(response, 'data', None) else None
         return jsonify({'success': True, 'data': enquiry}), 201
     except Exception:

@@ -227,7 +227,7 @@ def test_enquiry_rate_limit_is_five_per_hour_per_ip(client, monkeypatch):
     )
     insert = MagicMock(return_value=SimpleNamespace(execute=execute))
     table = MagicMock(return_value=SimpleNamespace(insert=insert))
-    monkeypatch.setattr(enquiry_routes, 'supabase', SimpleNamespace(table=table))
+    monkeypatch.setattr(enquiry_routes, 'supabase_admin', SimpleNamespace(table=table))
     payload = {
         'property_id': '00000000-0000-0000-0000-000000000001',
         'name': 'Example Person',

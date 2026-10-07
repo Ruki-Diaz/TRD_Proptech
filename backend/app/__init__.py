@@ -1,12 +1,15 @@
 import os
 from flask import Flask
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 from app.config import Config
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     app.config.setdefault('RATELIMIT_STORAGE_URI', 'memory://')
+    # Render sits behind a proxy; without this every visitor shares one rate-limit bucket
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
     
     frontend_url = os.environ.get('FRONTEND_URL')
     

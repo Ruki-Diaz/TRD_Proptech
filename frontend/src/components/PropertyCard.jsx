@@ -38,6 +38,18 @@ const PropertyCard = ({ prop }) => {
             {prop.purpose === 'sale' ? 'FOR SALE' : 'FOR RENT'}
           </Badge>
           
+          {/* Status Badges: Sold / Rented */}
+          {prop.status === 'sold' && (
+            <Badge variant="sold" className="backdrop-blur-md bg-rose-500/20 border-rose-500/30 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.3)] font-bold tracking-widest text-[10px]">
+              SOLD
+            </Badge>
+          )}
+          {prop.status === 'rented' && (
+            <Badge variant="rented" className="backdrop-blur-md bg-purple-500/20 border-purple-500/30 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.3)] font-bold tracking-widest text-[10px]">
+              RENTED
+            </Badge>
+          )}
+
           {/* Trust Layer: Featured */}
           {prop.featured && (
             <Badge variant="featured" className="backdrop-blur-md bg-amber-500/20 border-amber-500/30 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]">

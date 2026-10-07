@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { fetchProperties } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
 import { PropertyCardSkeleton } from '../components/Skeletons';
+import { SRI_LANKA_DISTRICTS } from '../utils/constants';
 
 const Properties = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -152,10 +153,9 @@ const Properties = () => {
                     onChange={(e) => updateFilter('district', e.target.value)}
                   >
                     <option value="" className="bg-slate-800">All Districts</option>
-                    <option value="Colombo" className="bg-slate-800">Colombo</option>
-                    <option value="Kandy" className="bg-slate-800">Kandy</option>
-                    <option value="Galle" className="bg-slate-800">Galle</option>
-                    <option value="Gampaha" className="bg-slate-800">Gampaha</option>
+                    {SRI_LANKA_DISTRICTS.map((d) => (
+                      <option key={d} value={d} className="bg-slate-800">{d}</option>
+                    ))}
                   </select>
                 </div>
 

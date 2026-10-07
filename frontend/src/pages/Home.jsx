@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { fetchProperties } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
+import { SRI_LANKA_DISTRICTS } from '../utils/constants';
 
 const Motion = motion;
 
@@ -195,10 +196,9 @@ const Home = () => {
                   <div className="relative bg-[#050505]/50 border border-white/10 rounded-xl px-4 py-3 hover:border-teal-500/50 transition-colors">
                     <select className="bg-transparent w-full text-white font-medium outline-none appearance-none" value={search.district} onChange={(e) => setSearch({...search, district: e.target.value})}>
                       <option value="" className="bg-[#0f0f0f]">Any Location</option>
-                      <option value="Colombo" className="bg-[#0f0f0f]">Colombo</option>
-                      <option value="Kandy" className="bg-[#0f0f0f]">Kandy</option>
-                      <option value="Galle" className="bg-[#0f0f0f]">Galle</option>
-                      <option value="Gampaha" className="bg-[#0f0f0f]">Gampaha</option>
+                      {SRI_LANKA_DISTRICTS.map((d) => (
+                        <option key={d} value={d} className="bg-[#0f0f0f]">{d}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -246,22 +246,30 @@ const Home = () => {
       {/* -------------------- STATS/TRUST SECTION -------------------- */}
       <section className="py-20 border-b border-white/5 bg-[#0a0a0a] relative z-10">
         <div className="container mx-auto px-6 max-w-6xl">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x-0 md:divide-x divide-white/5">
-            {[
-              { label: 'Properties Listed', value: totalCount !== null ? `${totalCount}` : '—' },
-              { label: 'Districts Covered', value: '25' },
-              { label: 'Verified Listings', value: '100%' },
-              { label: 'Direct Inquiries', value: '24/7' }
-            ].map((stat, idx) => (
-              <motion.div 
-                key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ delay: idx * 0.1, duration: 0.6 }}
-                className="text-center px-4"
-              >
-                <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-white mb-3 tracking-tighter">{stat.value}</div>
-                <div className="text-xs text-slate-400 font-bold uppercase tracking-widest">{stat.label}</div>
-              </motion.div>
-            ))}
-          </div>
+          {(() => {
+            const stats = [
+              ...(totalCount !== null && !loading && !error
+                ? [{ label: 'Properties Listed', value: `${totalCount}` }]
+                : []),
+              { label: 'Districts Covered', value: `${SRI_LANKA_DISTRICTS.length}` },
+              { label: 'Direct Inquiries', value: 'WhatsApp' },
+              { label: 'Listing Types', value: 'Sale & Rent' }
+            ];
+
+            return (
+              <div className={`grid ${stats.length === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'} gap-8 divide-x-0 md:divide-x divide-white/5`}>
+                {stats.map((stat, idx) => (
+                  <motion.div 
+                    key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ delay: idx * 0.1, duration: 0.6 }}
+                    className="text-center px-4"
+                  >
+                    <div className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-white mb-3 tracking-tighter">{stat.value}</div>
+                    <div className="text-xs text-slate-400 font-bold uppercase tracking-widest">{stat.label}</div>
+                  </motion.div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </section>
 

@@ -6,6 +6,7 @@ import { useAuth } from '../context/useAuth';
 import { createProperty } from '../services/api';
 import PageShell from '../components/PageShell';
 import { validateImages, uploadPropertyImages } from '../utils/imageUpload';
+import { SRI_LANKA_DISTRICTS } from '../utils/constants';
 
 const PostProperty = () => {
   const { user, loading: authLoading } = useAuth();
@@ -208,10 +209,9 @@ const PostProperty = () => {
                      <div>
                         <label className="block text-sm font-bold text-slate-300 mb-2">District <span className="text-rose-400">*</span></label>
                         <select name="district" value={formData.district} onChange={handleInputChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 transition-all font-medium text-white appearance-none">
-                           <option value="Colombo" className="bg-slate-800">Colombo</option>
-                           <option value="Gampaha" className="bg-slate-800">Gampaha</option>
-                           <option value="Kandy" className="bg-slate-800">Kandy</option>
-                           <option value="Galle" className="bg-slate-800">Galle</option>
+                           {SRI_LANKA_DISTRICTS.map((d) => (
+                              <option key={d} value={d} className="bg-slate-800">{d}</option>
+                           ))}
                         </select>
                      </div>
                   </div>

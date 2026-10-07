@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, ArrowLeft, Bed, Bath, Expand, CheckCircle2, Copy, ShieldCheck, Clock } from 'lucide-react';
+import { MapPin, ArrowLeft, Bed, Bath, Expand, CheckCircle2, Copy, ShieldCheck, Clock, Star, User, Briefcase, Phone, AlertCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { fetchPropertyBySlug, fetchSimilarProperties, submitEnquiry } from '../services/api';
 import { useSavedProperties } from '../context/useSavedProperties';
@@ -143,8 +143,14 @@ const PropertyDetail = () => {
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-3">
                     <Badge variant="purpose">
-                      FOR {property.purpose.toUpperCase()}
+                      FOR {property.purpose?.toUpperCase()}
                     </Badge>
+                    {property.status === 'sold' && (
+                      <Badge variant="sold" className="!rounded-lg px-3 py-1 shadow-[0_0_10px_rgba(244,63,94,0.3)]">SOLD</Badge>
+                    )}
+                    {property.status === 'rented' && (
+                      <Badge variant="rented" className="!rounded-lg px-3 py-1 shadow-[0_0_10px_rgba(168,85,247,0.3)]">RENTED</Badge>
+                    )}
                     {property.is_verified && (
                       <Badge variant="verified" className="!rounded-lg px-3 py-1 shadow-[0_0_10px_rgba(16,185,129,0.2)]"><ShieldCheck className="w-4 h-4 mr-1"/> Verified Listing</Badge>
                     )}
@@ -249,35 +255,50 @@ const PropertyDetail = () => {
               
               <hr className="my-8 border-slate-800" />
               
-              <div className="mb-8 flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
-                {property.agent?.avatar_url ? (
-                  <img 
-                    src={property.agent.avatar_url} 
-                    alt={property.agent.full_name} 
-                    className="w-16 h-16 rounded-xl object-cover shadow-md border border-slate-700 shrink-0"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center shrink-0 border border-slate-600">
-                    {property.listed_by === 'owner' ? <User className="w-8 h-8 text-slate-400" /> : <Briefcase className="w-8 h-8 text-slate-400" />}
-                  </div>
-                )}
-                <div>
-                  <div className="text-lg font-bold text-white mb-1 flex items-center">
-                    {property.agent?.full_name || (property.listed_by === 'owner' ? 'Property Owner' : 'SquareLanka Agent')}
-                    {property.agent?.agent_profiles?.[0]?.is_verified && (
-                      <ShieldCheck className="w-5 h-5 ml-2 text-teal-400 fill-teal-400/20" title="Verified Agent" />
-                    )}
-                  </div>
-                  <div className="text-sm text-teal-400 font-semibold mb-1">
-                    {property.agent?.agent_profiles?.[0]?.company_name || (property.listed_by === 'owner' ? 'Direct Owner' : 'Independent Consultant')}
-                  </div>
-                  {property.agent?.agent_profiles?.[0]?.bio && (
-                    <div className="text-xs text-slate-400 font-medium line-clamp-2">
-                      {property.agent.agent_profiles[0].bio}
+              {/* Agent Details Section - Hidden when no agent attached */}
+              {property.agent ? (
+                <div className="mb-8 flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                  {property.agent.avatar_url ? (
+                    <img 
+                      src={property.agent.avatar_url} 
+                      alt={property.agent.full_name || 'Agent'} 
+                      className="w-16 h-16 rounded-xl object-cover shadow-md border border-slate-700 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center shrink-0 border border-slate-600">
+                      <Briefcase className="w-8 h-8 text-slate-400" />
                     </div>
                   )}
+                  <div>
+                    <div className="text-lg font-bold text-white mb-1 flex items-center">
+                      {property.agent.full_name}
+                      {(property.agent.is_verified || property.agent.agent_profiles?.[0]?.is_verified) && (
+                        <ShieldCheck className="w-5 h-5 ml-2 text-teal-400 fill-teal-400/20" title="Verified Agent" />
+                      )}
+                    </div>
+                    {property.agent.agent_profiles?.[0]?.company_name && (
+                      <div className="text-sm text-teal-400 font-semibold mb-1">
+                        {property.agent.agent_profiles[0].company_name}
+                      </div>
+                    )}
+                    {property.agent.agent_profiles?.[0]?.bio && (
+                      <div className="text-xs text-slate-400 font-medium line-clamp-2">
+                        {property.agent.agent_profiles[0].bio}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : property.listed_by === 'owner' ? (
+                <div className="mb-8 flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+                  <div className="w-16 h-16 rounded-xl bg-slate-700 flex items-center justify-center shrink-0 border border-slate-600">
+                    <User className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-white mb-1">Direct Property Owner</div>
+                    <div className="text-sm text-teal-400 font-semibold">Private Listing</div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="space-y-4">
                 {property.whatsapp_number && property.whatsapp_number.trim() !== '' && (
@@ -300,50 +321,65 @@ const PropertyDetail = () => {
  
               <hr className="my-8 border-slate-800" />
               
-              <h4 className="text-xl font-bold text-white mb-4">Enquire Now</h4>
-              {enquiryStatus === 'success' ? (
-                <div className="bg-teal-900/30 text-teal-400 p-4 rounded-2xl flex items-center border border-teal-500/30 shadow-[0_0_15px_rgba(20,184,166,0.1)]">
-                  <CheckCircle2 className="w-5 h-5 mr-3 shrink-0" />
-                  <span className="font-medium">Enquiry sent! We will contact you shortly.</span>
+              {/* Enquiry Form / Sold or Rented notice */}
+              {property.status === 'sold' || property.status === 'rented' ? (
+                <div className="bg-slate-800/40 p-6 rounded-2xl border border-slate-700/50 text-center">
+                  <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-3">
+                    <AlertCircle className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <h4 className="text-lg font-bold text-white mb-1">No Longer Available</h4>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    This property has been marked as <span className="font-semibold text-slate-200 uppercase">{property.status}</span> and is no longer accepting enquiries.
+                  </p>
                 </div>
               ) : (
-                <form onSubmit={handleEnquirySubmit} className="space-y-4">
-                  <input 
-                    type="text" required placeholder="Full Name" 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
-                    value={enquiry.name} onChange={e => setEnquiry({...enquiry, name: e.target.value})}
-                  />
-                  <input 
-                    type="email" required placeholder="Email Address" 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
-                    value={enquiry.email} onChange={e => setEnquiry({...enquiry, email: e.target.value})}
-                  />
-                  <input 
-                    type="tel" required placeholder="Phone Number" 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
-                    value={enquiry.phone} onChange={e => setEnquiry({...enquiry, phone: e.target.value})}
-                  />
-                  <textarea 
-                    placeholder="I am interested in this property..." rows="3"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm resize-none transition-all text-white placeholder-slate-500"
-                    value={enquiry.message} onChange={e => setEnquiry({...enquiry, message: e.target.value})}
-                  ></textarea>
-                  {enquiryStatus === 'error' && <p className="text-rose-400 text-xs font-semibold">Failed to send enquiry, please try again.</p>}
-                  <button 
-                    type="submit" disabled={enquiryStatus === 'loading'}
-                    className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_25px_rgba(20,184,166,0.5)] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center border border-teal-400/30"
-                  >
-                    {enquiryStatus === 'loading' ? (
-                       <>
-                         <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                         </svg>
-                         Sending Enquiry...
-                       </>
-                    ) : 'Send Message'}
-                  </button>
-                </form>
+                <>
+                  <h4 className="text-xl font-bold text-white mb-4">Enquire Now</h4>
+                  {enquiryStatus === 'success' ? (
+                    <div className="bg-teal-900/30 text-teal-400 p-4 rounded-2xl flex items-center border border-teal-500/30 shadow-[0_0_15px_rgba(20,184,166,0.1)]">
+                      <CheckCircle2 className="w-5 h-5 mr-3 shrink-0" />
+                      <span className="font-medium">Enquiry sent! We will contact you shortly.</span>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleEnquirySubmit} className="space-y-4">
+                      <input 
+                        type="text" required placeholder="Full Name" 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
+                        value={enquiry.name} onChange={e => setEnquiry({...enquiry, name: e.target.value})}
+                      />
+                      <input 
+                        type="email" required placeholder="Email Address" 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
+                        value={enquiry.email} onChange={e => setEnquiry({...enquiry, email: e.target.value})}
+                      />
+                      <input 
+                        type="tel" required placeholder="Phone Number" 
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm transition-all text-white placeholder-slate-500"
+                        value={enquiry.phone} onChange={e => setEnquiry({...enquiry, phone: e.target.value})}
+                      />
+                      <textarea 
+                        placeholder="I am interested in this property..." rows="3"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 text-sm resize-none transition-all text-white placeholder-slate-500"
+                        value={enquiry.message} onChange={e => setEnquiry({...enquiry, message: e.target.value})}
+                      ></textarea>
+                      {enquiryStatus === 'error' && <p className="text-rose-400 text-xs font-semibold">Failed to send enquiry, please try again.</p>}
+                      <button 
+                        type="submit" disabled={enquiryStatus === 'loading'}
+                        className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)] hover:shadow-[0_0_25px_rgba(20,184,166,0.5)] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center border border-teal-400/30"
+                      >
+                        {enquiryStatus === 'loading' ? (
+                           <>
+                             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                             </svg>
+                             Sending Enquiry...
+                           </>
+                        ) : 'Send Message'}
+                      </button>
+                    </form>
+                  )}
+                </>
               )}
             </div>
           </div>

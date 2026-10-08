@@ -10,7 +10,7 @@ export const timeAgo = (dateStr) => {
   return `Posted ${diffMonths} months ago`;
 };
 
-export const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
+export const FALLBACK_IMAGE = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20fill%3D%22%231e293b%22%20width%3D%22800%22%20height%3D%22600%22%2F%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M400%20220l-160%20140h60v120h200v-120h60z%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%22530%22%20fill%3D%22%2394a3b8%22%20font-size%3D%2220%22%20font-family%3D%22sans-serif%22%20text-anchor%3D%22middle%22%3ENo%20Image%20Available%3C%2Ftext%3E%3C%2Fsvg%3E";
 
 const isValidImageUrl = (url) => {
   if (typeof url !== 'string') return false;
@@ -87,7 +87,7 @@ export const getPropertyImages = (property) => {
           if (!Array.isArray(parsedUrls)) {
             parsedUrls = [parsedUrls];
           }
-        } catch (e) {
+        } catch {
           // If not valid JSON, treat as comma-separated or single string
           if (trimmed.includes(',')) {
             parsedUrls = trimmed.split(',').map(s => s.trim());

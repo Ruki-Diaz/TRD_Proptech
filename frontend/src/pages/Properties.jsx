@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { MapPin, Filter, Bed, Bath, Expand, Heart } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Filter, AlertCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { fetchProperties } from '../services/api';
 import PropertyCard from '../components/PropertyCard';
 import { PropertyCardSkeleton } from '../components/Skeletons';
+import { SRI_LANKA_DISTRICTS } from '../utils/constants';
 
 const Properties = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const currentDistrict = searchParams.get('district') || '';
   const currentType = searchParams.get('type') || '';
@@ -23,25 +25,64 @@ const Properties = () => {
 
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
+  const handleRetry = async () => {
     setLoading(true);
-    fetchProperties({ 
-      district: currentDistrict, 
-      type: currentType, 
-      purpose: currentPurpose,
-      bedrooms: currentBeds,
-      min_price: currentMinPrice,
-      max_price: currentMaxPrice,
-      sort: currentSort,
-      page: currentPage,
-      limit: ITEMS_PER_PAGE
-    })
-      .then(res => {
-         setProperties(res.data);
-         setTotal(res.total);
-      })
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
+    setError(null);
+    try {
+      const res = await fetchProperties({ 
+        district: currentDistrict, 
+        type: currentType, 
+        purpose: currentPurpose,
+        bedrooms: currentBeds,
+        min_price: currentMinPrice,
+        max_price: currentMaxPrice,
+        sort: currentSort,
+        page: currentPage,
+        limit: ITEMS_PER_PAGE
+      });
+      setProperties(res.data || []);
+      setTotal(res.total || 0);
+    } catch (err) {
+      console.error("Failed fetching properties:", err);
+      setError("Couldn't load listings. Please check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      try {
+        const res = await fetchProperties({ 
+          district: currentDistrict, 
+          type: currentType, 
+          purpose: currentPurpose,
+          bedrooms: currentBeds,
+          min_price: currentMinPrice,
+          max_price: currentMaxPrice,
+          sort: currentSort,
+          page: currentPage,
+          limit: ITEMS_PER_PAGE
+        });
+        if (!isMounted) return;
+        setProperties(res.data || []);
+        setTotal(res.total || 0);
+      } catch (err) {
+        console.error("Failed fetching properties:", err);
+        if (isMounted) {
+          setError("Couldn't load listings. Please check your connection and retry.");
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [currentDistrict, currentType, currentPurpose, currentBeds, currentMinPrice, currentMaxPrice, currentSort, currentPage]);
 
   const updateFilter = (key, value) => {
@@ -112,10 +153,9 @@ const Properties = () => {
                     onChange={(e) => updateFilter('district', e.target.value)}
                   >
                     <option value="" className="bg-slate-800">All Districts</option>
-                    <option value="Colombo" className="bg-slate-800">Colombo</option>
-                    <option value="Kandy" className="bg-slate-800">Kandy</option>
-                    <option value="Galle" className="bg-slate-800">Galle</option>
-                    <option value="Gampaha" className="bg-slate-800">Gampaha</option>
+                    {SRI_LANKA_DISTRICTS.map((d) => (
+                      <option key={d} value={d} className="bg-slate-800">{d}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -191,9 +231,21 @@ const Properties = () => {
 
             {loading ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                {[1,2,3,4].map(n => (
+                {[1, 2, 3, 4].map(n => (
                   <PropertyCardSkeleton key={n} />
                 ))}
+              </div>
+            ) : error ? (
+              <div className="bg-slate-900/50 p-16 rounded-2xl border border-slate-800 text-center backdrop-blur-sm">
+                <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-200 mb-2">Couldn't load listings</h3>
+                <p className="text-slate-400 mb-6">{error}</p>
+                <button 
+                  onClick={handleRetry}
+                  className="inline-flex items-center justify-center bg-teal-500 hover:bg-teal-400 text-[#050505] font-bold px-6 py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(20,184,166,0.3)]"
+                >
+                  Retry
+                </button>
               </div>
             ) : properties.length > 0 ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">

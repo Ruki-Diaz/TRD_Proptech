@@ -16,24 +16,36 @@ const AgentProfile = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setLoading(true);
-    setError(null);
+    let isMounted = true;
 
-    fetchAgentProfile(id)
-      .then(data => {
+    async function loadAgentData() {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchAgentProfile(id);
+        if (!isMounted) return;
         setAgent(data);
         
-        // Fetch properties for this agent
-        fetchProperties({ user_id: id })
-          .then(res => setProperties(res.data))
-          .catch(e => console.error("Failed fetching agent properties", e))
-          .finally(() => setPropertiesLoading(false));
-      })
-      .catch(err => {
+        try {
+          const res = await fetchProperties({ user_id: id });
+          if (isMounted) setProperties(res.data || []);
+        } catch (e) {
+          console.error("Failed fetching agent properties", e);
+        } finally {
+          if (isMounted) setPropertiesLoading(false);
+        }
+      } catch (err) {
         console.error(err);
-        setError("Agent not found or unavailable");
-      })
-      .finally(() => setLoading(false));
+        if (isMounted) setError("Agent not found or unavailable");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    }
+
+    loadAgentData();
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   if (loading) return (

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Home, Menu, X, Heart, LogOut, LayoutDashboard, PlusCircle } from 'lucide-react';
-import { useSavedProperties } from '../context/SavedPropertiesContext';
-import { useAuth } from '../context/AuthContext';
+import { useSavedProperties } from '../context/useSavedProperties';
+import { useAuth } from '../context/useAuth';
 
 const Navbar = () => {
   const { savedProperties } = useSavedProperties();

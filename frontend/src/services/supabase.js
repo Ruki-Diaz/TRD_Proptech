@@ -5,14 +5,7 @@ const supabaseAnonKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.VITE_SUPABASE_KEY;
 
-// Temporary safe debug log
-console.log({
-  hasSupabaseUrl: Boolean(supabaseUrl),
-  supabaseUrlIncludesRestV1: supabaseUrl?.includes('/rest/v1'),
-  supabaseUrlLooksValid: supabaseUrl?.startsWith('https://') && supabaseUrl?.includes('.supabase.co'),
-  hasSupabaseKey: Boolean(supabaseAnonKey),
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL
-});
+
 
 // Prepare trimmed variables
 const rawUrl = supabaseUrl ? supabaseUrl.trim() : '';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { PlusCircle, Settings2, Home, BarChart3, Edit3, Trash2, TriangleAlert, Loader2, MessageSquare, Phone, Mail } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { fetchMyProperties, updatePropertyStatus, deleteProperty, fetchMyEnquiries, updateEnquiryStatus } from '../services/api';
 import PageShell from '../components/PageShell';
 import { getPropertyImage, FALLBACK_IMAGE } from '../utils/helpers';

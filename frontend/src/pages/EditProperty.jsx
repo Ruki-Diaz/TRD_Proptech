@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, UploadCloud, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { supabase } from '../services/supabase';
+import { useAuth } from '../context/useAuth';
 import { fetchEditableProperty, updateProperty } from '../services/api';
 import PageShell from '../components/PageShell';
 import { FALLBACK_IMAGE } from '../utils/helpers';
+import { validateImages, uploadPropertyImages } from '../utils/imageUpload';
+import { SRI_LANKA_DISTRICTS } from '../utils/constants';
 
 const EditProperty = () => {
   const { propertyId } = useParams();
@@ -16,6 +17,7 @@ const EditProperty = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [imageError, setImageError] = useState('');
   const [success, setSuccess] = useState('');
   const [files, setFiles] = useState([]);
   const [currentImages, setCurrentImages] = useState([]);
@@ -86,38 +88,22 @@ const EditProperty = () => {
   };
 
   const handleFileChange = (event) => {
-    setFiles(Array.from(event.target.files || []));
-  };
-
-  const uploadImages = async (filesToUpload, currentUser) => {
-    const uploadedUrls = [];
-
-    for (const file of filesToUpload) {
-      if (!file || file.size === 0) continue;
-
-      const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('property-images')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw new Error(uploadError.message);
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(filePath);
-
-      uploadedUrls.push(publicUrlData.publicUrl);
+    const selectedFiles = Array.from(event.target.files || []);
+    const validationErr = validateImages(selectedFiles);
+    if (validationErr) {
+      setImageError(validationErr);
+      setFiles([]);
+      return;
     }
-
-    return uploadedUrls;
+    setImageError('');
+    setFiles(selectedFiles);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
     setError('');
+    setImageError('');
     setSuccess('');
 
     try {
@@ -129,7 +115,12 @@ const EditProperty = () => {
       let imageUrls = existingProperty.image_urls || [];
 
       if (files.length > 0) {
-        const uploaded = await uploadImages(files, user);
+        const validationErr = validateImages(files);
+        if (validationErr) {
+          setImageError(validationErr);
+          throw new Error(validationErr);
+        }
+        const uploaded = await uploadPropertyImages(files, user);
         mainImageUrl = uploaded[0] || null;
         imageUrls = uploaded.slice(1);
       }
@@ -259,10 +250,9 @@ const EditProperty = () => {
                 <div>
                   <label className="block text-sm font-bold text-slate-300 mb-2">District <span className="text-rose-400">*</span></label>
                   <select name="district" value={formData.district} onChange={handleInputChange} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/50 transition-all font-medium text-white appearance-none">
-                    <option value="Colombo" className="bg-slate-800">Colombo</option>
-                    <option value="Gampaha" className="bg-slate-800">Gampaha</option>
-                    <option value="Kandy" className="bg-slate-800">Kandy</option>
-                    <option value="Galle" className="bg-slate-800">Galle</option>
+                    {SRI_LANKA_DISTRICTS.map((d) => (
+                      <option key={d} value={d} className="bg-slate-800">{d}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -323,12 +313,18 @@ const EditProperty = () => {
 
               <div className="mb-8">
                 <label className="block text-sm font-bold text-slate-300 mb-2">Replace Property Images</label>
-                <p className="text-xs text-slate-400 mb-3 font-semibold">Leave this empty to keep the current gallery.</p>
+                <p className="text-xs text-slate-400 mb-3 font-semibold">Accepted formats: JPEG, PNG, WebP (max 5 MB per image, up to 10 images). Leave empty to keep the current gallery.</p>
                 <div className="w-full bg-slate-800/50 border-2 border-dashed border-teal-500/30 rounded-2xl p-8 hover:bg-slate-800 hover:border-teal-500/50 transition-all text-center relative cursor-pointer group">
                   <UploadCloud className="w-10 h-10 text-teal-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                   <span className="font-bold text-teal-400 text-sm">Click to upload replacement photos</span>
-                  <input type="file" multiple accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                  <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 </div>
+                {imageError && (
+                  <div className="mt-3 bg-rose-500/10 border border-rose-500/30 p-3 rounded-xl flex items-center text-rose-400 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
+                    <span>{imageError}</span>
+                  </div>
+                )}
                 {files.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {files.map((file, index) => (

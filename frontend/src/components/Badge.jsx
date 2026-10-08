@@ -10,6 +10,8 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
     purpose: "bg-white/95 backdrop-blur text-slate-900 border border-slate-100 uppercase tracking-widest",
     agent: "bg-blue-50 text-blue-700 border border-blue-100",
     owner: "bg-slate-100 text-slate-600 border border-slate-200",
+    sold: "bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider font-bold",
+    rented: "bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wider font-bold",
   };
 
   return (

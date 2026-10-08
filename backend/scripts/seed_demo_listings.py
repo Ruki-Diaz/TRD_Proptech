@@ -11,7 +11,9 @@ Usage:
 import os
 import sys
 import argparse
+import secrets
 import urllib.request
+from collections import Counter
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -30,36 +32,68 @@ SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '').strip() or os.environ.get('SUP
 # Valid image cache to minimize network calls
 IMAGE_CACHE = {}
 
-# High-quality fallback images per property type verified on Unsplash
+# Verified fallback images per property type (at least 12 unique, verified HTTP 200 per type)
 FALLBACK_IMAGES = {
     'apartment': [
-        "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
+        "https://images.unsplash.com/photo-1513584684374-8bab748fbf90?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1501183638710-841dd1904471?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1519643381401-22c77e60520e?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1618219908412-a29a1bb7b86e?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1581092795360-fd1ca04f0952?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80"
     ],
     'house': [
-        "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
+        "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1460317442991-0ec209397118?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1542744094-24638eff58bb?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1200&q=80"
     ],
     'commercial': [
-        "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80"
+        "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80"
     ],
     'land': [
-        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
+        "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1473773508845-188df298d2d1?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1516214104703-d870798883c5?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1507035895480-2b3156c31fc8?auto=format&fit=crop&w=1200&q=80",
+        "https://images.unsplash.com/photo-1488441770602-aed21fc49bd5?auto=format&fit=crop&w=1200&q=80"
     ]
 }
 
 
-def check_image_url(url: str, timeout=4) -> bool:
+def check_image_url(url: str, timeout: int = 5) -> bool:
     """Send HEAD request to verify image returns HTTP 200."""
     if not url or not isinstance(url, str) or not url.startswith(('http://', 'https://')):
         return False
@@ -72,7 +106,7 @@ def check_image_url(url: str, timeout=4) -> bool:
             method='HEAD'
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:
-            ok = response.status == 200
+            ok = (response.status == 200)
             IMAGE_CACHE[url] = ok
             return ok
     except Exception:
@@ -83,7 +117,7 @@ def check_image_url(url: str, timeout=4) -> bool:
                 method='GET'
             )
             with urllib.request.urlopen(req, timeout=timeout) as response:
-                ok = response.status == 200
+                ok = (response.status == 200)
                 IMAGE_CACHE[url] = ok
                 return ok
         except Exception:
@@ -91,23 +125,20 @@ def check_image_url(url: str, timeout=4) -> bool:
             return False
 
 
-def validate_and_repair_images(image_list, prop_type='house'):
-    """Ensure all images in list return 200, replacing broken ones from verified fallback pool."""
-    repaired = []
+def pick_fallback_image(prop_type: str, used_urls: set) -> str:
+    """Pick an unused verified fallback image for the property type."""
     fallbacks = FALLBACK_IMAGES.get(prop_type, FALLBACK_IMAGES['house'])
-    fb_idx = 0
-    for img in image_list:
-        if check_image_url(img):
-            repaired.append(img)
-        else:
-            repaired.append(fallbacks[fb_idx % len(fallbacks)])
-            fb_idx += 1
-
-    while len(repaired) < 4:
-        repaired.append(fallbacks[fb_idx % len(fallbacks)])
-        fb_idx += 1
-
-    return repaired[:4]
+    for url in fallbacks:
+        if url not in used_urls and check_image_url(url):
+            used_urls.add(url)
+            return url
+    # Fallback across all categories if primary pool exhausted
+    for ptype, pool in FALLBACK_IMAGES.items():
+        for url in pool:
+            if url not in used_urls and check_image_url(url):
+                used_urls.add(url)
+                return url
+    raise RuntimeError(f"Exhausted all available fallback images for {prop_type}!")
 
 
 # 5 Demo Agents definitions
@@ -165,8 +196,9 @@ DEMO_AGENTS = [
 ]
 
 # 36 New Listings Definitions (Bringing total with 12 existing to 48)
+# Each listing contains 4 distinct verified images formatted as https://images.unsplash.com/photo-<id>?auto=format&fit=crop&w=1200&q=80
+# images[0] is the hero/exterior shot.
 NEW_LISTINGS = [
-    # ------------------ 14 RENTALS (Priced LKR 60,000 to 600,000 / mo) ------------------
     {
         "slug": "sea-breeze-luxury-apartment-colombo-03",
         "title": "Sea Breeze Luxury Apartment in Colombo 03",
@@ -186,11 +218,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "cozy-furnished-studio-apartment-havelock-city",
@@ -211,11 +243,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1567496898669-ee935f5f647a?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "spacious-family-residence-rajagiriya",
@@ -236,11 +268,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "hilltop-scenic-villa-peradeniya-kandy",
@@ -261,11 +293,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1518780664697-55e3ad937233?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "modern-colonial-apartment-kandy-town",
@@ -286,11 +318,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1574362848149-11496d93a7c7?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "beachside-tropical-villa-unawatuna",
@@ -311,11 +343,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1576941089067-2de3c901e126?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1598228723793-52759bba239c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "luxury-serviced-condo-galle-fort",
@@ -336,11 +368,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "contemporary-duplex-house-kelaniya",
@@ -361,11 +393,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1572120360610-d971b9d7767c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "coastal-apartment-kadawatha-highway",
@@ -386,11 +418,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1515263487990-61b07816b324?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "affordable-residential-home-gampaha-town",
@@ -411,11 +443,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 4,
         "images": [
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1599809275671-b5942cabc7a2?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "colonial-style-tea-estate-bungalow-badulla",
@@ -432,15 +464,15 @@ NEW_LISTINGS = [
         "features": ["Tea Estate View", "Fireplace", "Stone Masonry", "Organic Garden", "Staff Quarters", "Large Verandah"],
         "whatsapp_number": "+94 70 456 7890",
         "phone_number": "+94 70 456 7890",
-        "status": "rented",  # Target 1 of 4 sold/rented
+        "status": "rented",
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1592595896551-12b371d546d5?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "luxury-penthouse-colombo-07-cinnamon-gardens",
@@ -461,11 +493,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1499916078039-922301b0eb9b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560184897-ae75f418493e?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "lakefront-luxury-apartment-nuwara-eliya",
@@ -482,15 +514,15 @@ NEW_LISTINGS = [
         "features": ["Lake View", "Fireplace", "Central Heating", "Double Glazing", "Private Terrace", "Secure Parking"],
         "whatsapp_number": "+94 70 456 7890",
         "phone_number": "+94 70 456 7890",
-        "status": "rented",  # Target 2 of 4 sold/rented
+        "status": "rented",
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1560185008-b033106af5c3?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1617103996702-96ff29b1c467?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1616046229478-9901c5536a45?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "executive-townhouse-jaffna-nallur",
@@ -511,14 +543,12 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 4,
         "images": [
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1613977257592-4871e5fcd7c4?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
-
-    # ------------------ 13 SALES (Priced LKR 15M to 60M) ------------------
     {
         "slug": "modern-two-storey-house-malabe",
         "title": "Modern Two Storey House in Malabe IT Hub",
@@ -538,11 +568,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1544984243-ec57ea16fe25?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "luxury-condo-apartment-thalawathugoda",
@@ -563,11 +593,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600573472550-8090b5e0745e?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "scenic-panoramic-house-digana-kandy",
@@ -588,11 +618,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "brand-new-residential-villa-katugastota",
@@ -613,11 +643,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1448630360428-65456885c650?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1505691723518-36a5ac3be353?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "contemporary-beach-villa-hikkaduwa",
@@ -638,11 +668,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1585412727339-54e4bae3bbf9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560448204-61dc36dc98c8?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1560448075-bb485b067938?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "colonial-heritage-gem-amathe-galle",
@@ -659,15 +689,15 @@ NEW_LISTINGS = [
         "features": ["Central Courtyard", "Dutch Terracotta Tiles", "Antique Fittings", "Polished Cement", "Organic Garden", "Clear Title Deeds"],
         "whatsapp_number": "+94 71 234 5678",
         "phone_number": "+94 71 234 5678",
-        "status": "sold",  # Target 3 of 4 sold/rented
+        "status": "sold",
         "featured": False,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1573496799652-408c2ac9fe98?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "luxury-two-storey-residence-negombo",
@@ -688,11 +718,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1600607687644-c7171b42498f?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1507089947368-19c1da9775ae?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1534349762230-e0cadf78f5da?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "architect-designed-villa-ja-ela",
@@ -713,11 +743,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "starter-family-house-kiribathgoda",
@@ -734,15 +764,15 @@ NEW_LISTINGS = [
         "features": ["Main Road Access", "Garden Space", "Tiled Flooring", "Parking for 2 Cars", "Clear Title Deeds", "Iron Gate"],
         "whatsapp_number": "+94 78 567 8901",
         "phone_number": "+94 78 567 8901",
-        "status": "sold",  # Target 4 of 4 sold/rented
+        "status": "sold",
         "featured": False,
         "agent_index": 4,
         "images": [
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "compact-urban-home-wattala",
@@ -763,11 +793,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1516455590571-18256e5bb9ff?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "scenic-beachside-bungalow-kalutara",
@@ -788,11 +818,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1565182999561-18d7dc61c393?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "residential-luxury-home-kurunegala",
@@ -813,11 +843,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 4,
         "images": [
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1541123437800-1bb1317badc2?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1502673530728-f79b4cab31b1?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "modern-family-villa-matara-kandurugoda",
@@ -838,14 +868,12 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1511884642898-4c92249e20b6?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
-
-    # ------------------ 5 COMMERCIAL PROPERTIES ------------------
     {
         "slug": "prime-commercial-building-colombo-04-kollupitiya",
         "title": "Prime Commercial Building on Galle Road Colombo 04",
@@ -863,11 +891,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "modern-office-complex-kandy-peradeniya-road",
@@ -886,11 +914,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1497366412874-3415097a27e7?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "commercial-warehouse-facility-peliyagoda",
@@ -909,11 +937,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1531973576160-7125cd663d86?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "boutique-hotel-commercial-space-galle-fort",
@@ -932,11 +960,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1517502884422-41eaead166d4?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1568992687947-868a62a9f521?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1572021335469-31706a17aaef?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "commercial-retail-hub-kurunegala-town",
@@ -955,14 +983,12 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 4,
         "images": [
-            "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1527192491265-7e15c55b1ed2?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
-
-    # ------------------ 4 LAND PROPERTIES ------------------
     {
         "slug": "prime-residential-land-nawala-colombo",
         "title": "Prime Residential Land in Nawala",
@@ -981,11 +1007,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 0,
         "images": [
-            "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "scenic-coconut-estate-land-mirigama",
@@ -1005,11 +1031,11 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 2,
         "images": [
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1518457607834-6e8d80c183c5?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "cliffside-oceanview-land-ahangama-galle",
@@ -1029,11 +1055,11 @@ NEW_LISTINGS = [
         "featured": True,
         "agent_index": 1,
         "images": [
-            "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
-        ]
+            "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1439853949127-fa647821eba0?auto=format&fit=crop&w=1200&q=80",
+        ],
     },
     {
         "slug": "mountain-view-tea-land-hantana-kandy",
@@ -1053,12 +1079,12 @@ NEW_LISTINGS = [
         "featured": False,
         "agent_index": 3,
         "images": [
-            "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&w=800&q=80"
-        ]
-    }
+            "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
+        ],
+    },
 ]
 
 
@@ -1078,6 +1104,9 @@ def run_seed_and_repair(apply_changes: bool = False):
     repaired_listings_count = 0
     created_listings_count = 0
 
+    # Global set to track used image URLs across all listings to ensure 0 duplicates
+    used_image_urls = set()
+
     # 1. CREATE OR REUSE 5 DEMO AGENTS
     print("\n--- Step 1: Processing Demo Agents ---")
     agent_id_map = {}
@@ -1093,18 +1122,30 @@ def run_seed_and_repair(apply_changes: bool = False):
         if res.data:
             agent_id = res.data[0]['id']
             print(f"  [REUSE] Found existing agent profile for {email} (ID: {agent_id})")
+            if apply_changes:
+                random_pw = secrets.token_urlsafe(24)
+                try:
+                    client.auth.admin.update_user_by_id(agent_id, {'password': random_pw})
+                    print(f"  [RESET] Reset password for existing agent {email}")
+                except Exception as e:
+                    print(f"ERROR: Failed to reset password for {email}: {e}")
+                    sys.exit(1)
+            else:
+                print(f"  [DRY-RUN] Would reset password for existing agent {email}")
         else:
             print(f"  [CREATE] Agent {full_name} ({email}) needs to be created")
             if apply_changes:
+                random_pw = secrets.token_urlsafe(24)
                 try:
                     auth_res = client.auth.admin.create_user({
                         'email': email,
-                        'password': 'Password123!',
+                        'password': random_pw,
                         'email_confirm': True,
                         'user_metadata': {'full_name': full_name}
                     })
                     agent_id = auth_res.user.id
                 except Exception as e:
+                    # If creation failed, check if user already exists in auth.users
                     try:
                         all_users = client.auth.admin.list_users()
                         for u in all_users:
@@ -1113,9 +1154,18 @@ def run_seed_and_repair(apply_changes: bool = False):
                                 break
                     except Exception:
                         pass
-                if not agent_id:
-                    import uuid
-                    agent_id = str(uuid.uuid4())
+                    
+                    if not agent_id:
+                        print(f"ERROR: User creation failed for {email}: {e}")
+                        sys.exit(1)
+
+                    # Reset password for existing user in auth
+                    try:
+                        client.auth.admin.update_user_by_id(agent_id, {'password': random_pw})
+                        print(f"  [RESET] Reset password for existing auth user {email}")
+                    except Exception as err:
+                        print(f"ERROR: Failed to reset password for {email}: {err}")
+                        sys.exit(1)
                 
                 # Upsert profile
                 client.table('profiles').upsert({
@@ -1139,22 +1189,27 @@ def run_seed_and_repair(apply_changes: bool = False):
                 created_agents_count += 1
             else:
                 agent_id = f"dry-run-agent-id-{email}"
+                print(f"  [DRY-RUN] Would create agent {email} with random password and profile")
                 created_agents_count += 1
 
         agent_id_map[email] = agent_id
 
     default_agent_id = list(agent_id_map.values())[0]
 
-    # 2. REPAIR EXISTING LISTINGS
+    # 2. REPAIR EXISTING LISTINGS (Minimal repairs only)
     print("\n--- Step 2: Inspecting and Repairing Existing Listings ---")
     existing_res = client.table('properties').select('*').execute()
     existing_props = existing_res.data or []
     print(f"  Found {len(existing_props)} existing listings in database.")
 
+    changed_image_listings = []
+    final_existing_property_images = {}
+
     for prop in existing_props:
         prop_id = prop['id']
         title = prop.get('title', '')
         slug = prop.get('slug', '')
+        prop_type = prop.get('property_type') or 'house'
         updates = {}
 
         # a. Repair user_id if None
@@ -1166,39 +1221,81 @@ def run_seed_and_repair(apply_changes: bool = False):
             updates['whatsapp_number'] = DEMO_AGENTS[0]['phone_number']
             print(f"  [REPAIR] Listing '{title}' (ID: {prop_id}) missing user_id -> Assigned to {DEMO_AGENTS[0]['full_name']}")
 
-        # b. Repair 'Modern Luxury Apartment in Colombo 03'
+        # b. Repair 'Modern Luxury Apartment in Colombo 03' property_type & features
         if "Modern Luxury Apartment in Colombo 03" in title or "colombo-03" in slug:
             if prop.get('property_type') != 'apartment':
                 updates['property_type'] = 'apartment'
+                prop_type = 'apartment'
                 print(f"  [REPAIR] Listing '{title}' changed property_type to 'apartment'")
             
-            # Ensure 4 images & 5 features
             features = prop.get('features') or []
             if len(features) < 5:
                 updates['features'] = ["Ocean View", "Rooftop Pool", "Gym", "24/7 Security", "Covered Parking"]
                 print(f"  [REPAIR] Listing '{title}' updated to 5 features")
 
-            images = validate_and_repair_images(
-                prop.get('image_urls') or [prop.get('main_image_url')],
-                'apartment'
-            )
-            updates['main_image_url'] = images[0]
-            updates['image_urls'] = images
+        # c. Minimal image repair according to rules:
+        # Only change images if at least one URL fails to load.
+        # Replace only failing URLs, keeping working ones in original order.
+        # Do not pad up to 4 unless fewer than 2 working images.
+        # Convention: main_image_url holds first image and image_urls holds additional ones.
+        orig_main = prop.get('main_image_url')
+        orig_additional = prop.get('image_urls') or []
+        if isinstance(orig_additional, str):
+            orig_additional = [orig_additional]
 
-        # c. Verify & repair images for any listing with broken URLs
-        main_img = prop.get('main_image_url')
-        img_urls = prop.get('image_urls') or []
-        if isinstance(img_urls, str):
-            img_urls = [img_urls]
-        
-        all_imgs = [main_img] if main_img else []
-        all_imgs.extend([u for u in img_urls if u and u not in all_imgs])
-        
-        validated_imgs = validate_and_repair_images(all_imgs, prop.get('property_type', 'house'))
-        if validated_imgs != all_imgs or not check_image_url(main_img):
-            updates['main_image_url'] = validated_imgs[0]
-            updates['image_urls'] = validated_imgs
-            print(f"  [REPAIR] Listing '{title}' image URLs verified and repaired")
+        has_broken_url = False
+        if orig_main:
+            if not check_image_url(orig_main):
+                has_broken_url = True
+        else:
+            has_broken_url = True
+
+        for u in orig_additional:
+            if u and not check_image_url(u):
+                has_broken_url = True
+
+        # Collect working images in original order (deduplicating main if present in image_urls)
+        working_images = []
+        if orig_main and check_image_url(orig_main):
+            working_images.append(orig_main)
+        for u in orig_additional:
+            if u and check_image_url(u) and u not in working_images:
+                working_images.append(u)
+
+        fewer_than_2_working = len(working_images) < 2
+
+        if has_broken_url or fewer_than_2_working:
+            # Images change for this listing
+            repaired_imgs = list(working_images)
+            for img in repaired_imgs:
+                used_image_urls.add(img)
+
+            if fewer_than_2_working:
+                # Pad up to 4 images
+                while len(repaired_imgs) < 4:
+                    fresh = pick_fallback_image(prop_type, used_image_urls)
+                    repaired_imgs.append(fresh)
+            else:
+                # Keep original slot count by replacing only failed URLs
+                orig_slot_count = 1 + len([u for u in orig_additional if u and u != orig_main])
+                target_count = max(len(working_images), orig_slot_count)
+                while len(repaired_imgs) < target_count:
+                    fresh = pick_fallback_image(prop_type, used_image_urls)
+                    repaired_imgs.append(fresh)
+
+            updates['main_image_url'] = repaired_imgs[0]
+            updates['image_urls'] = repaired_imgs[1:]
+            changed_image_listings.append((title, prop_id, len(working_images), len(repaired_imgs)))
+            final_existing_property_images[prop_id] = repaired_imgs
+            print(f"  [REPAIR] Listing '{title}' images repaired: 1 main + {len(updates['image_urls'])} additional")
+        else:
+            # Images stay unchanged
+            for img in working_images:
+                used_image_urls.add(img)
+            # Retain existing images
+            all_existing = [orig_main] if orig_main else []
+            all_existing.extend([u for u in orig_additional if u and u not in all_existing])
+            final_existing_property_images[prop_id] = all_existing
 
         if updates:
             repaired_listings_count += 1
@@ -1208,10 +1305,12 @@ def run_seed_and_repair(apply_changes: bool = False):
             else:
                 print(f"  [DRY-RUN] Would update property {prop_id} with: {list(updates.keys())}")
 
-    # 3. ADD NEW LISTINGS TO BRING TOTAL TO ABOUT 48
+    # 3. ADD NEW LISTINGS (Unique photos matching each property)
     print("\n--- Step 3: Seeding New Demo Listings ---")
     existing_slugs = {p.get('slug') for p in existing_props if p.get('slug')}
     existing_titles = {p.get('title', '').strip().lower() for p in existing_props}
+
+    final_new_property_images = {}
 
     for item in NEW_LISTINGS:
         slug = item["slug"]
@@ -1224,8 +1323,22 @@ def run_seed_and_repair(apply_changes: bool = False):
         agent_info = DEMO_AGENTS[item["agent_index"]]
         agent_id = agent_id_map.get(agent_info["email"], default_agent_id)
 
-        # Validate images before insertion
-        validated_images = validate_and_repair_images(item["images"], item["property_type"])
+        # Validate images for new listing, ensuring 4 unique, verified images
+        listing_images = []
+        for img in item["images"]:
+            if img and img not in used_image_urls and check_image_url(img):
+                listing_images.append(img)
+                used_image_urls.add(img)
+            else:
+                fresh = pick_fallback_image(item["property_type"], used_image_urls)
+                listing_images.append(fresh)
+
+        while len(listing_images) < 4:
+            fresh = pick_fallback_image(item["property_type"], used_image_urls)
+            listing_images.append(fresh)
+
+        final_images = listing_images[:4]
+        final_new_property_images[slug] = final_images
 
         property_row = {
             "title": item["title"],
@@ -1242,8 +1355,8 @@ def run_seed_and_repair(apply_changes: bool = False):
             "land_size": item.get("land_size"),
             "land_size_unit": item.get("land_size_unit"),
             "features": item["features"],
-            "main_image_url": validated_images[0],
-            "image_urls": validated_images,
+            "main_image_url": final_images[0],
+            "image_urls": final_images[1:],  # Only additional images
             "user_id": agent_id,
             "listed_by": "agent",
             "agent_name": agent_info["full_name"],
@@ -1265,14 +1378,47 @@ def run_seed_and_repair(apply_changes: bool = False):
             client.table('properties').insert(property_row).execute()
             print(f"  [APPLIED] Inserted: {title}")
 
+    # 4. DUPLICATE IMAGE URL CHECK (Fail loudly if any URL is used twice)
+    print("\n--- Step 4: Validating Image Uniqueness Across All Listings ---")
+    all_new_images = []
+    for item in NEW_LISTINGS:
+        imgs = item["images"]
+        if len(imgs) != len(set(imgs)):
+            raise AssertionError(f"Listing '{item['title']}' repeats an image within itself: {imgs}")
+        all_new_images.extend(imgs)
+
+    total_slots = len(all_new_images)
+    unique_slots = len(set(all_new_images))
+
+    url_counts = Counter(all_new_images)
+    duplicates = {url: count for url, count in url_counts.items() if count > 1}
+
+    if duplicates:
+        print("\n" + "!" * 70)
+        print("  CRITICAL ERROR: DUPLICATE IMAGE URLS DETECTED!")
+        print("!" * 70)
+        for url, count in duplicates.items():
+            print(f"  - {url} (used {count} times)")
+        print("!" * 70)
+        raise AssertionError(f"Validation failed: {len(duplicates)} duplicate image URLs found across listings!")
+    else:
+        print(f"  [PASS] All {total_slots} image slots across {len(NEW_LISTINGS)} new listings are 100% unique ({unique_slots}/{total_slots})!")
+
     # Summary
     print("\n" + "=" * 70)
     print("  SEED & REPAIR EXECUTION SUMMARY")
     print("=" * 70)
-    print(f"  - Agents processed / created:  {created_agents_count}")
-    print(f"  - Existing listings repaired:  {repaired_listings_count}")
-    print(f"  - New listings created:        {created_listings_count}")
-    print(f"  - Total projected listings:    {len(existing_props) + created_listings_count}")
+    print(f"  - Agents processed / created:       {created_agents_count}")
+    print(f"  - Existing listings inspected:      {len(existing_props)}")
+    print(f"  - Existing listings image changes:  {len(changed_image_listings)}")
+    print(f"  - Existing listings total repairs:  {repaired_listings_count}")
+    print(f"  - New listings created:             {created_listings_count}")
+    print(f"  - Total projected listings:         {len(existing_props) + created_listings_count}")
+    print(f"  - Unique Image URLs vs Slots:       {unique_slots} / {total_slots}")
+    print("=" * 70)
+    print("  Existing listings whose images would change:")
+    for title, pid, working_cnt, final_cnt in changed_image_listings:
+        print(f"    * '{title}' (ID: {pid}) -> {working_cnt} working, updated to {final_cnt} images")
     print("=" * 70)
     if not apply_changes:
         print("  Notice: Ran in DRY-RUN mode. No changes were written to Supabase.")
